@@ -6,19 +6,20 @@ import { Search, MapPin, Home, ExternalLink, Filter, AlertCircle } from "lucide-
 
 interface Property {
   _id: string
-  "Apartment Name": string
-  Location: string
-  "Minimum Price": number
-  "Maximum Price": number
-  "Per Sqft Cost": number
-  "Number of Units": number
-  "Total Area": string
-  "Project Status": string
-  "Photo URL": string
-  "Listing URL": string
-  Amenities: string[]
-  Latitude: number
-  Longitude: number
+  title: string
+  location: string
+  price: string
+  priceSqft: string
+  photoUrl: string
+  listingUrl: string
+  amenities: string[]
+  latitude: number
+  longitude: number
+  address: string
+  category: string
+  tags: string[]
+  projectHighlights: string
+  reraId: string
 }
 
 const PropertyListings = () => {
@@ -27,8 +28,8 @@ const PropertyListings = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000000])
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [tagFilter, setTagFilter] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
@@ -37,7 +38,7 @@ const PropertyListings = () => {
 
   useEffect(() => {
     filterProperties()
-  }, [searchTerm, statusFilter, priceRange, properties])
+  }, [searchTerm, categoryFilter, tagFilter, properties])
 
   const fetchProperties = async () => {
     try {
@@ -61,43 +62,20 @@ const PropertyListings = () => {
 
       const processedData: Property[] = data.documents.map((doc: any) => ({
         _id: doc._id?.$oid || doc._id,
-        "Apartment Name": doc["Apartment Name"] || "Unknown",
-        Location: doc.Location || "Unknown",
-        "Minimum Price": doc["Minimum Price"]?.$numberInt
-          ? Number.parseInt(doc["Minimum Price"].$numberInt)
-          : typeof doc["Minimum Price"] === "number"
-            ? doc["Minimum Price"]
-            : 0,
-        "Maximum Price": doc["Maximum Price"]?.$numberInt
-          ? Number.parseInt(doc["Maximum Price"].$numberInt)
-          : typeof doc["Maximum Price"] === "number"
-            ? doc["Maximum Price"]
-            : 0,
-        "Per Sqft Cost": doc["Per Sqft Cost"]?.$numberDouble
-          ? Number.parseFloat(doc["Per Sqft Cost"].$numberDouble)
-          : typeof doc["Per Sqft Cost"] === "number"
-            ? doc["Per Sqft Cost"]
-            : 0,
-        "Number of Units": doc["Number of Units"]?.$numberInt
-          ? Number.parseInt(doc["Number of Units"].$numberInt)
-          : typeof doc["Number of Units"] === "number"
-            ? doc["Number of Units"]
-            : 0,
-        "Total Area": doc["Total Area"] || "N/A",
-        "Project Status": doc["Project Status"] || "Unknown",
-        "Photo URL": doc["Photo URL"] || "",
-        "Listing URL": doc["Listing URL"] || "#",
-        Amenities: doc.Amenities || [],
-        Latitude: doc.Latitude?.$numberDouble
-          ? Number.parseFloat(doc.Latitude.$numberDouble)
-          : typeof doc.Latitude === "number"
-            ? doc.Latitude
-            : 0,
-        Longitude: doc.Longitude?.$numberDouble
-          ? Number.parseFloat(doc.Longitude.$numberDouble)
-          : typeof doc.Longitude === "number"
-            ? doc.Longitude
-            : 0,
+        title: doc.title || "Unknown",
+        location: doc.taxonomies?.["at_biz_dir-location"]?.[0] || "Unknown",
+        price: doc.fields?.starting_bsp || "N/A",
+        priceSqft: doc.fields?.price_sqft || "N/A",
+        photoUrl: doc.fields?.photo_url || "",
+        listingUrl: doc.fields?.listing_url || "#",
+        amenities: doc.fields?.amenities || [],
+        latitude: doc.fields?.latitude ? parseFloat(doc.fields.latitude) : 0,
+        longitude: doc.fields?.longitude ? parseFloat(doc.fields.longitude) : 0,
+        address: doc.fields?.address || "N/A",
+        category: doc.taxonomies?.["at_biz_dir-category"]?.[0] || "Unknown",
+        tags: doc.taxonomies?.["at_biz_dir-tags"] || [],
+        projectHighlights: doc.fields?.project_highlights || "N/A",
+        reraId: doc.fields?.rera_id || "N/A",
       }))
 
       setProperties(processedData)
@@ -113,27 +91,18 @@ const PropertyListings = () => {
   const filterProperties = () => {
     const filtered = properties.filter((property) => {
       const matchesSearch =
-        property["Apartment Name"].toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.Location.toLowerCase().includes(searchTerm.toLowerCase())
+        property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.address.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || property["Project Status"] === statusFilter
+      const matchesCategory = categoryFilter === "all" || property.category === categoryFilter
 
-      const price = property["Minimum Price"]
-      const matchesPrice = price >= priceRange[0] && price <= priceRange[1]
+      const matchesTag = tagFilter === "all" || property.tags.includes(tagFilter)
 
-      return matchesSearch && matchesStatus && matchesPrice
+      return matchesSearch && matchesCategory && matchesTag
     })
 
     setFilteredProperties(filtered)
-  }
-
-  const formatPrice = (price: number) => {
-    if (price >= 10000000) {
-      return `₹${(price / 10000000).toFixed(2)} Cr`
-    } else if (price >= 100000) {
-      return `₹${(price / 100000).toFixed(2)} L`
-    }
-    return `₹${price.toLocaleString("en-IN")}`
   }
 
   if (loading) {
@@ -212,37 +181,29 @@ const PropertyListings = () => {
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Project Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                   <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="all">All Status</option>
-                    <option value="Ready to Move">Ready to Move</option>
-                    <option value="Under Construction">Under Construction</option>
-                    <option value="New Launch">New Launch</option>
+                    <option value="all">All Categories</option>
+                    <option value="Residential">Residential</option>
+                    <option value="Commercial">Commercial</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={priceRange[0]}
-                      onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="text-gray-500">to</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={priceRange[1]}
-                      onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Tags</option>
+                    <option value="Premium">Premium</option>
+                    <option value="Verified">Verified</option>
+                    <option value="New Launch">New Launch</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -266,70 +227,82 @@ const PropertyListings = () => {
               >
                 <div className="relative h-48 bg-gray-200">
                   <img
-                    src={property["Photo URL"] || "/placeholder.svg"}
-                    alt={property["Apartment Name"]}
+                    src={property.photoUrl || "/placeholder.svg"}
+                    alt={property.title}
                     className="w-full h-full object-cover"
                     onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                       e.currentTarget.src = "https://via.placeholder.com/400x300?text=Property+Image"
                     }}
                   />
                   <div className="absolute top-3 right-3 bg-indigo-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    {property["Project Status"]}
+                    {property.category}
                   </div>
+                  {property.tags.length > 0 && (
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      {property.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{property["Apartment Name"]}</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{property.title}</h3>
 
                   <div className="flex items-center text-gray-600 mb-3">
-                    <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                    <span className="text-sm">{property.Location}</span>
+                    <MapPin className="w-4 h-4 mr-1 shrink-0" />
+                    <span className="text-sm">{property.location}</span>
                   </div>
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Price Range</span>
-                      <span className="font-semibold text-indigo-600">
-                        {formatPrice(property["Minimum Price"])}
-                        {property["Maximum Price"] !== property["Minimum Price"] &&
-                          ` - ${formatPrice(property["Maximum Price"])}`}
-                      </span>
+                      <span className="text-gray-600">Price</span>
+                      <span className="font-semibold text-indigo-600">{property.price}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Per Sqft</span>
-                      <span className="font-semibold">₹{property["Per Sqft Cost"].toLocaleString("en-IN")}</span>
+                      <span className="font-semibold">{property.priceSqft}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Units</span>
-                      <span className="font-semibold">{property["Number of Units"]}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Total Area</span>
-                      <span className="font-semibold">{property["Total Area"]}</span>
+                      <span className="text-gray-600">RERA ID</span>
+                      <span className="font-semibold text-xs">{property.reraId}</span>
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-xs text-gray-600 font-medium mb-2">Amenities:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {property.Amenities.slice(0, 4).map((amenity, idx) => (
-                        <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {amenity}
-                        </span>
-                      ))}
-                      {property.Amenities.length > 4 && (
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">
-                          +{property.Amenities.length - 4} more
-                        </span>
-                      )}
+                  {property.projectHighlights !== "N/A" && (
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-600 font-medium mb-1">Highlights:</p>
+                      <p className="text-sm text-gray-700">{property.projectHighlights}</p>
                     </div>
-                  </div>
+                  )}
+
+                  {property.amenities.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-600 font-medium mb-2">Amenities:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {property.amenities.slice(0, 4).map((amenity, idx) => (
+                          <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                            {amenity}
+                          </span>
+                        ))}
+                        {property.amenities.length > 4 && (
+                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">
+                            +{property.amenities.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <a
-                    href={property["Listing URL"]}
+                    href={property.listingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
