@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb"
 import { type NextRequest, NextResponse } from "next/server"
 
-const uri = process.env.MONGODB_URI
+const uri = process.env.MONGODB_URI + "&ssl=false";
 
 let cachedClient: MongoClient | null = null
 
