@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const db = client.db("ccube_research")
     const collection = db.collection("apartment")
 
-    const properties = await collection.find({}).limit(100).toArray()
+    const properties = await collection.find({}).limit(500).toArray()
 
     return NextResponse.json({ documents: properties })
   } catch (error) {
