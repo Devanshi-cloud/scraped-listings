@@ -24,12 +24,46 @@ export async function GET(request: NextRequest) {
     const client = await getMongoClient()
     await client.connect()
 
-    const db = client.db("ccube_research")
-    const collection = db.collection("apartment")
+    const db = client.db("proptrust")
+    const collection = db.collection("listings")
 
     const properties = await collection.find({}).limit(500).toArray()
 
-    return NextResponse.json({ documents: properties })
+    const formattedProperties = properties.map((property) => ({
+      _id: {
+        $oid: property._id.toHexString(), // Convert ObjectId to string for $oid
+      },
+      title: property.title,
+      author_id: property.author_id,
+      meta_description: property.meta_description,
+      project_description: property.project_description,
+      fields: {
+        price_sqft: property.price_sqft,
+        latitude: property.latitude,
+        longitude: property.longitude,
+        address: property.address,
+        project_highlights: property.project_highlights,
+        rera_url: property.rera_url,
+        rera_id: property.rera_id,
+        about_project: property.about_project,
+        nearest_school: property.nearest_school,
+        nearest_bank: property.nearest_bank,
+        nearest_hospital: property.nearest_hospital,
+        starting_bsp: property.starting_bsp,
+        project_detail: property.project_detail,
+        listing_url: property.listing_url,
+        photo_url: property.photo_url,
+        amenities: property.amenities || [], // Ensure amenities is an array
+      },
+      taxonomies: {
+        "at_biz_dir-category": property["at_biz_dir-category"] || [],
+        "at_biz_dir-location": property["at_biz_dir-location"] || [],
+        "at_biz_dir-tags": property["at_biz_dir-tags"] || [],
+      },
+      scraped_at: property.scraped_at,
+    }))
+
+    return NextResponse.json({ documents: formattedProperties })
   } catch (error) {
     console.error("Error fetching properties:", error)
     return NextResponse.json(
